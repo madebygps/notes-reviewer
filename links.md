@@ -1,5 +1,9 @@
 # Links
 
+https://aka.ms/ngConf-demo
+
+![alt text](image.png)
+
 - [GitHub Copilot CLI](https://github.com/features/copilot/cli/)
 - [Awesome Copilot](https://github.com/github/awesome-copilot)
 - [Angular - Develop with AI](https://angular.dev/ai/develop-with-ai)
