@@ -1,8 +1,8 @@
 .app-header {
   position: sticky;
   top: 0;
-  background: linear-gradient(90deg, #f0070c 0%, #cc26d5 50%, #7702ff 100%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: #2a2a2a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   padding: 1rem 0;
 }
@@ -17,7 +17,7 @@
 }
 
 .app-title {
-  color: white;
+  color: #e0e0e0;
   font-size: 1.75rem;
   font-weight: 700;
   margin: 0;
@@ -29,21 +29,23 @@
 }
 
 .nav-link {
-  color: white;
+  color: #b0b0b0;
   text-decoration: none;
   font-weight: 500;
   font-size: 1.1rem;
   padding: 0.5rem 1rem;
   border-radius: 8px;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #3a3a3a;
+  color: #e0e0e0;
 }
 
 .nav-link.active {
-  background: rgba(255, 255, 255, 0.3);
+  background: #444;
+  color: #ffffff;
 }
 
 .app-main {

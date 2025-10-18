@@ -12,7 +12,8 @@ body {
     "Segoe UI Symbol";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: #1a1a1a;
+  color: #e0e0e0;
   min-height: 100vh;
 }
 
