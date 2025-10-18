@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Api, SearchResultItem } from '../../services/api';
@@ -12,6 +12,7 @@ import { Api, SearchResultItem } from '../../services/api';
 })
 export class Search {
   private readonly api = inject(Api);
+  private readonly destroyRef = inject(DestroyRef);
   
   protected readonly searchForm = new FormGroup({
     query: new FormControl('', [Validators.required, Validators.minLength(2)]),
@@ -34,7 +35,7 @@ export class Search {
     this.error.set(null);
 
     this.api.search({ query, top_k })
-      .pipe(takeUntilDestroyed())
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
           this.results.set(response.results);

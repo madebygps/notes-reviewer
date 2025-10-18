@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Api, UploadPhotoResponse } from '../../services/api';
 
@@ -11,6 +11,7 @@ import { Api, UploadPhotoResponse } from '../../services/api';
 })
 export class Upload {
   private readonly api = inject(Api);
+  private readonly destroyRef = inject(DestroyRef);
   
   protected readonly selectedFile = signal<File | null>(null);
   protected readonly uploadResult = signal<UploadPhotoResponse | null>(null);
@@ -78,7 +79,7 @@ export class Upload {
     this.error.set(null);
 
     this.api.uploadPhoto(file)
-      .pipe(takeUntilDestroyed())
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
           this.uploadResult.set(response);
