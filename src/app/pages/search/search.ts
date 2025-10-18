@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Api, SearchResultItem } from '../../services/api';
 
@@ -32,16 +33,18 @@ export class Search {
     this.loading.set(true);
     this.error.set(null);
 
-    this.api.search({ query, top_k }).subscribe({
-      next: (response) => {
-        this.results.set(response.results);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.error.set(err.error?.detail || 'An error occurred while searching');
-        this.loading.set(false);
-        this.results.set([]);
-      }
-    });
+    this.api.search({ query, top_k })
+      .pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (response) => {
+          this.results.set(response.results);
+          this.loading.set(false);
+        },
+        error: (err) => {
+          this.error.set(err.error?.detail || 'An error occurred while searching');
+          this.loading.set(false);
+          this.results.set([]);
+        }
+      });
   }
 }

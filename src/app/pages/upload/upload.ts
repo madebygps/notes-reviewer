@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Api, UploadPhotoResponse } from '../../services/api';
 
 @Component({
@@ -76,17 +77,19 @@ export class Upload {
     this.loading.set(true);
     this.error.set(null);
 
-    this.api.uploadPhoto(file).subscribe({
-      next: (response) => {
-        this.uploadResult.set(response);
-        this.loading.set(false);
-        this.selectedFile.set(null);
-      },
-      error: (err) => {
-        this.error.set(err.error?.detail || 'An error occurred while uploading the file');
-        this.loading.set(false);
-      }
-    });
+    this.api.uploadPhoto(file)
+      .pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (response) => {
+          this.uploadResult.set(response);
+          this.loading.set(false);
+          this.selectedFile.set(null);
+        },
+        error: (err) => {
+          this.error.set(err.error?.detail || 'An error occurred while uploading the file');
+          this.loading.set(false);
+        }
+      });
   }
 
   protected clearSelection(): void {

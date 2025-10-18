@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface SearchRequest {
   query: string;
@@ -34,7 +35,7 @@ export interface UploadPhotoResponse {
 })
 export class Api {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8000/api/v1';
+  private readonly baseUrl = environment.apiUrl;
 
   search(request: SearchRequest): Observable<SearchResponse> {
     return this.http.post<SearchResponse>(`${this.baseUrl}/search`, request);
