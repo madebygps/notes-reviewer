@@ -87,3 +87,6 @@ applyTo: '**.py'
 - Use f-strings for string formatting
 - Prefer explicit imports over wildcard imports
 
+## Run the server 
+
+- Use this command: `uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
