@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from functools import lru_cache
 
 from ollama import Client
 
 from config import Config, get_config
+
+logger = logging.getLogger(__name__)
 
 
 class LLMService:
@@ -37,11 +41,15 @@ class LLMService:
             AI-generated summary of the findings
 
         Raises:
-            Exception: If summarization fails
+            ValueError: If response format is unexpected
+            RuntimeError: If summarization fails
         """
         try:
             if not results:
+                logger.debug("No results to summarize")
                 return "No results found to summarize."
+
+            logger.info(f"Generating summary for query: '{query}' with {len(results)} results")
 
             # Prepare context from results
             context_parts = []
@@ -72,8 +80,9 @@ Please provide a concise summary of the key findings across these documents. Foc
 
 Keep your summary clear, informative, and under 200 words."""
 
-            # Generate summary using LLM
-            response = self.client.chat(
+            # Generate summary using LLM (run in thread pool to avoid blocking)
+            response = await asyncio.to_thread(
+                self.client.chat,
                 model=self.model,
                 messages=[
                     {
@@ -95,8 +104,11 @@ Keep your summary clear, informative, and under 200 words."""
             else:
                 raise ValueError(f"Unexpected response format: {type(response)}")
 
+        except ValueError:
+            raise
         except Exception as e:
-            raise Exception(f"Failed to generate summary: {str(e)}") from e
+            logger.error(f"Failed to generate summary: {e}")
+            raise RuntimeError(f"Failed to generate summary: {str(e)}") from e
 
 
 @lru_cache

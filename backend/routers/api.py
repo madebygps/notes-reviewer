@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+
+logger = logging.getLogger(__name__)
 
 from models import (
     ErrorResponse,
@@ -48,6 +51,8 @@ async def search(
         HTTPException: If search fails
     """
     try:
+        logger.info(f"Search request: query='{request.query}', top_k={request.top_k}, summarize={request.summarize}")
+
         # Perform search
         results = await search_service.search(
             query=request.query,
@@ -84,10 +89,12 @@ async def search(
                         for result in search_results
                     ],
                 )
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
                 # Log error but don't fail the request
-                print(f"Warning: Summary generation failed: {e}")
-                summary = "Summary generation failed. Please try again."
+                logger.warning(f"Summary generation failed: {e}")
+                summary = None
+
+        logger.info(f"Search completed: {len(search_results)} results")
 
         return SearchResponse(
             results=search_results,
@@ -96,10 +103,23 @@ async def search(
             summary=summary,
         )
 
-    except Exception as e:
+    except ValueError as e:
+        logger.error(f"Validation error in search: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except RuntimeError as e:
+        logger.error(f"Search service error: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Search service error: {str(e)}",
+        ) from e
+    except Exception as e:
+        logger.exception(f"Unexpected error in search: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -131,6 +151,8 @@ async def upload_photo(
         HTTPException: If upload or processing fails
     """
     try:
+        logger.info(f"Upload photo request: {file.filename}")
+
         # Validate file
         if not file.filename:
             raise HTTPException(
@@ -154,6 +176,8 @@ async def upload_photo(
                 detail="Empty file",
             )
 
+        logger.debug(f"Processing {file.filename}: {len(image_bytes)} bytes")
+
         # Extract text using OCR
         ocr_result = await ocr_service.extract_text_from_image(
             image_bytes=image_bytes,
@@ -165,6 +189,8 @@ async def upload_photo(
             text=ocr_result["text"],
             metadata=ocr_result["metadata"],
         )
+
+        logger.info(f"Successfully processed and indexed {file.filename}: {document_id[:8]}...")
 
         return UploadPhotoResponse(
             success=True,
@@ -180,13 +206,22 @@ async def upload_photo(
         raise
     except ValueError as e:
         # Validation errors (quality issues)
+        logger.warning(f"Validation error for {file.filename}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    except Exception as e:
-        # Other errors
+    except RuntimeError as e:
+        # Service errors
+        logger.error(f"Service error processing {file.filename}: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Upload processing error: {str(e)}",
+        ) from e
+    except Exception as e:
+        # Other unexpected errors
+        logger.exception(f"Unexpected error processing {file.filename}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
         ) from e

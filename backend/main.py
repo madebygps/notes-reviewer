@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -10,6 +11,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_config
 from routers import api
+from services.search_service import get_search_service
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -23,16 +32,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         None
     """
     # Startup
-    print("Starting Notes Reviewer API...")
+    logger.info("Starting Notes Reviewer API...")
     config = get_config()
-    print(f"Using Ollama model: {config.ollama_model}")
-    print(f"ChromaDB path: {config.chroma_db_path}")
-    print(f"Collection name: {config.chroma_collection_name}")
+    logger.info(f"Using Ollama model: {config.ollama_model}")
+    logger.info(f"ChromaDB path: {config.chroma_db_path}")
+    logger.info(f"Collection name: {config.chroma_collection_name}")
 
     yield
 
     # Shutdown
-    print("Shutting down Notes Reviewer API...")
+    logger.info("Shutting down Notes Reviewer API...")
+    try:
+        search_service = get_search_service()
+        search_service.close()
+        logger.info("ChromaDB client closed successfully")
+    except Exception as e:
+        logger.error(f"Error closing ChromaDB client: {e}")
 
 
 # Create FastAPI app
