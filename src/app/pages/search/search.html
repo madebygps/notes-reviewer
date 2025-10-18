@@ -1,0 +1,78 @@
+<div class="search-container">
+  <div class="search-header">
+    <h1>Search Notes</h1>
+    <p>Search through your notes using vector similarity</p>
+  </div>
+
+  <form [formGroup]="searchForm" (ngSubmit)="onSubmit()" class="search-form">
+    <div class="form-group">
+      <label for="query">Search Query</label>
+      <input
+        id="query"
+        type="text"
+        formControlName="query"
+        placeholder="Enter your search query..."
+        class="form-input"
+      />
+      @if (searchForm.controls.query.invalid && searchForm.controls.query.touched) {
+        <span class="error-text">Query must be at least 2 characters</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label for="top_k">Number of Results</label>
+      <input
+        id="top_k"
+        type="number"
+        formControlName="top_k"
+        min="1"
+        max="50"
+        class="form-input"
+      />
+    </div>
+
+    <button type="submit" [disabled]="searchForm.invalid || loading()" class="btn-primary">
+      @if (loading()) {
+        <span>Searching...</span>
+      } @else {
+        <span>Search</span>
+      }
+    </button>
+  </form>
+
+  @if (error()) {
+    <div class="error-message">
+      {{ error() }}
+    </div>
+  }
+
+  @if (results().length > 0) {
+    <div class="results-section">
+      <h2>Results ({{ results().length }})</h2>
+      <div class="results-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Content Preview</th>
+              <th>Relevance</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (result of results(); track result.id) {
+              <tr>
+                <td class="doc-name">{{ result.metadata['filename'] || result.id }}</td>
+                <td class="content-preview">{{ result.text.substring(0, 150) }}{{ result.text.length > 150 ? '...' : '' }}</td>
+                <td class="relevance-score">{{ (1 - result.distance).toFixed(3) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  } @else if (!loading() && searchForm.controls.query.value) {
+    <div class="empty-state">
+      <p>No results found. Try a different search query.</p>
+    </div>
+  }
+</div>
