@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import io
+import logging
 from datetime import datetime
 from functools import lru_cache
 
 import pytesseract
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from config import Config, get_config
+
+logger = logging.getLogger(__name__)
 
 
 class OCRService:
@@ -55,8 +58,16 @@ class OCRService:
                     f"Supported formats: {', '.join(self.SUPPORTED_FORMATS)}"
                 )
 
+            logger.info(f"Processing image: {filename}")
+
             # Load image
-            image = Image.open(io.BytesIO(image_bytes))
+            try:
+                image = Image.open(io.BytesIO(image_bytes))
+            except UnidentifiedImageError as e:
+                logger.error(f"Cannot identify image file: {filename}")
+                raise ValueError(
+                    f"Cannot identify image file. The file may be corrupted or not a valid image."
+                ) from e
 
             # Perform OCR with detailed output
             ocr_data = pytesseract.image_to_data(
@@ -75,14 +86,18 @@ class OCRService:
                 sum(confidences) / len(confidences) / 100.0 if confidences else 0.0
             )
 
+            logger.debug(f"OCR extracted {len(text)} chars with {avg_confidence:.2%} confidence")
+
             # Validate text quality
             if len(text) < self.min_text_length:
+                logger.warning(f"Text too short: {len(text)} chars (min: {self.min_text_length})")
                 raise ValueError(
                     f"Extracted text too short ({len(text)} chars). "
                     f"Minimum required: {self.min_text_length} chars"
                 )
 
             if avg_confidence < self.min_confidence:
+                logger.warning(f"Confidence too low: {avg_confidence:.2%} (min: {self.min_confidence:.2%})")
                 raise ValueError(
                     f"OCR confidence too low ({avg_confidence:.2%}). "
                     f"Minimum required: {self.min_confidence:.2%}"
@@ -101,6 +116,8 @@ class OCRService:
                 "word_count": len([w for w in ocr_data["text"] if w.strip()]),
             }
 
+            logger.info(f"Successfully processed {filename}: {len(text)} chars, {avg_confidence:.2%} confidence")
+
             return {
                 "text": text,
                 "confidence": avg_confidence,
@@ -110,8 +127,12 @@ class OCRService:
         except ValueError:
             # Re-raise validation errors
             raise
+        except pytesseract.TesseractError as e:
+            logger.error(f"Tesseract OCR error for {filename}: {e}")
+            raise RuntimeError(f"OCR processing failed: {str(e)}") from e
         except Exception as e:
-            raise Exception(f"OCR processing failed: {str(e)}") from e
+            logger.error(f"Unexpected error processing {filename}: {e}")
+            raise RuntimeError(f"OCR processing failed: {str(e)}") from e
 
     def validate_image_format(self, filename: str) -> bool:
         """Check if the image format is supported.

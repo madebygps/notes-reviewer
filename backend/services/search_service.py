@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from functools import lru_cache
 
@@ -10,6 +11,8 @@ from chromadb.config import Settings
 
 from config import Config, get_config
 from services.embedding_service import EmbeddingService, get_embedding_service
+
+logger = logging.getLogger(__name__)
 
 
 class SearchService:
@@ -59,9 +62,11 @@ class SearchService:
             Dictionary containing search results with ids, documents, distances, and metadata
 
         Raises:
-            Exception: If search fails
+            RuntimeError: If search fails
         """
         try:
+            logger.info(f"Searching for: '{query}' (top_k={top_k})")
+
             # Generate embedding for query
             query_embedding = await self.embedding_service.generate_embedding(query)
 
@@ -79,10 +84,23 @@ class SearchService:
                 "metadatas": results["metadatas"][0] if results["metadatas"] else [],
             }
 
+            # Log search results with distances for debugging
+            logger.info(f"Found {len(formatted_results['ids'])} results")
+            for i, (doc_id, distance, metadata) in enumerate(zip(
+                formatted_results["ids"], 
+                formatted_results["distances"],
+                formatted_results["metadatas"]
+            ), 1):
+                filename = metadata.get("filename", "unknown")
+                logger.info(f"  {i}. Distance: {distance:.4f} | File: {filename}")
+            
             return formatted_results
 
+        except (ValueError, RuntimeError):
+            raise
         except Exception as e:
-            raise Exception(f"Search failed: {str(e)}") from e
+            logger.error(f"Search failed: {e}")
+            raise RuntimeError(f"Search failed: {str(e)}") from e
 
     async def add_document(
         self,
@@ -101,12 +119,14 @@ class SearchService:
             Document ID
 
         Raises:
-            Exception: If adding document fails
+            RuntimeError: If adding document fails
         """
         try:
             # Generate document ID if not provided
             if document_id is None:
                 document_id = str(uuid.uuid4())
+
+            logger.info(f"Adding document {document_id[:8]}... ({len(text)} chars)")
 
             # Generate embedding for document
             embedding = await self.embedding_service.generate_embedding(text)
@@ -119,10 +139,14 @@ class SearchService:
                 ids=[document_id],
             )
 
+            logger.info(f"Successfully added document {document_id[:8]}...")
             return document_id
 
+        except (ValueError, RuntimeError):
+            raise
         except Exception as e:
-            raise Exception(f"Failed to add document: {str(e)}") from e
+            logger.error(f"Failed to add document: {e}")
+            raise RuntimeError(f"Failed to add document: {str(e)}") from e
 
     async def add_documents_batch(
         self,
@@ -141,12 +165,14 @@ class SearchService:
             List of document IDs
 
         Raises:
-            Exception: If adding documents fails
+            RuntimeError: If adding documents fails
         """
         try:
             # Generate document IDs if not provided
             if document_ids is None:
                 document_ids = [str(uuid.uuid4()) for _ in texts]
+
+            logger.info(f"Adding batch of {len(texts)} documents")
 
             # Generate embeddings for all documents
             embeddings = await self.embedding_service.generate_embeddings_batch(texts)
@@ -163,10 +189,97 @@ class SearchService:
                 ids=document_ids,
             )
 
+            logger.info(f"Successfully added batch of {len(texts)} documents")
             return document_ids
 
+        except (ValueError, RuntimeError):
+            raise
         except Exception as e:
-            raise Exception(f"Failed to add documents batch: {str(e)}") from e
+            logger.error(f"Failed to add documents batch: {e}")
+            raise RuntimeError(f"Failed to add documents batch: {str(e)}") from e
+
+    async def upsert_document(
+        self,
+        text: str,
+        document_id: str,
+        metadata: dict | None = None,
+    ) -> str:
+        """Add or update a document in the collection.
+
+        Args:
+            text: Document text content
+            document_id: Document ID
+            metadata: Optional metadata for the document
+
+        Returns:
+            Document ID
+
+        Raises:
+            RuntimeError: If upserting document fails
+        """
+        try:
+            logger.info(f"Upserting document {document_id[:8]}...")
+
+            # Generate embedding for document
+            embedding = await self.embedding_service.generate_embedding(text)
+
+            # Upsert to collection
+            self.collection.upsert(
+                embeddings=[embedding],
+                documents=[text],
+                metadatas=[metadata or {}],
+                ids=[document_id],
+            )
+
+            logger.info(f"Successfully upserted document {document_id[:8]}...")
+            return document_id
+
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to upsert document: {e}")
+            raise RuntimeError(f"Failed to upsert document: {str(e)}") from e
+
+    def get_by_id(self, document_id: str) -> dict | None:
+        """Get a document by ID.
+
+        Args:
+            document_id: Document ID to retrieve
+
+        Returns:
+            Dictionary with document data or None if not found
+        """
+        try:
+            result = self.collection.get(ids=[document_id])
+            
+            if not result["ids"]:
+                return None
+            
+            return {
+                "id": result["ids"][0],
+                "document": result["documents"][0],
+                "metadata": result["metadatas"][0] if result["metadatas"] else {},
+            }
+        except Exception as e:
+            logger.error(f"Failed to get document {document_id}: {e}")
+            return None
+
+    def delete_by_id(self, document_id: str) -> bool:
+        """Delete a document by ID.
+
+        Args:
+            document_id: Document ID to delete
+
+        Returns:
+            True if deleted, False if not found or error
+        """
+        try:
+            self.collection.delete(ids=[document_id])
+            logger.info(f"Deleted document {document_id[:8]}...")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete document {document_id}: {e}")
+            return False
 
     def get_collection_info(self) -> dict:
         """Get information about the collection.
@@ -191,6 +304,17 @@ class SearchService:
             name=self.config.chroma_collection_name,
             metadata={"hnsw:space": "cosine"},
         )
+
+    def close(self) -> None:
+        """Close the ChromaDB client and release resources."""
+        try:
+            # ChromaDB PersistentClient doesn't have explicit close,
+            # but we can clear references to allow cleanup
+            logger.info("Closing ChromaDB client")
+            del self.collection
+            del self.client
+        except Exception as e:
+            logger.warning(f"Error during ChromaDB cleanup: {e}")
 
 
 @lru_cache
