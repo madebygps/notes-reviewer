@@ -1,0 +1,101 @@
+<div class="upload-container">
+  <div class="upload-header">
+    <h1>Upload Photo</h1>
+    <p>Upload photos to extract and search text using OCR</p>
+  </div>
+
+  @if (error()) {
+    <div class="error-message">
+      {{ error() }}
+    </div>
+  }
+
+  @if (!uploadResult()) {
+    <div 
+      class="drop-zone" 
+      [class.drag-over]="dragOver()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+    >
+      <div class="drop-zone-content">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        
+        @if (!selectedFile()) {
+          <p class="drop-text">Drag and drop your photo here</p>
+          <p class="drop-subtext">or</p>
+          <label for="file-input" class="file-label">
+            Choose File
+            <input 
+              id="file-input" 
+              type="file" 
+              accept="image/jpeg,image/jpg,image/png,image/tiff,image/bmp"
+              (change)="onFileSelected($event)"
+              class="file-input"
+            />
+          </label>
+          <p class="file-info">Supported formats: JPG, PNG, TIFF, BMP (Max 10MB)</p>
+        } @else {
+          <p class="selected-file">{{ selectedFile()!.name }}</p>
+          <p class="file-size">{{ (selectedFile()!.size / 1024 / 1024).toFixed(2) }} MB</p>
+          <div class="file-actions">
+            <button (click)="uploadFile()" [disabled]="loading()" class="btn-primary">
+              @if (loading()) {
+                <span>Uploading...</span>
+              } @else {
+                <span>Upload</span>
+              }
+            </button>
+            <button (click)="clearSelection()" [disabled]="loading()" class="btn-secondary">
+              Cancel
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="upload-success">
+      <div class="success-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      
+      <h2>Upload Successful!</h2>
+      <p class="success-message">{{ uploadResult()!.message }}</p>
+      
+      <div class="result-details">
+        <div class="detail-item">
+          <span class="detail-label">Document ID:</span>
+          <span class="detail-value">{{ uploadResult()!.document_id }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Confidence:</span>
+          <span class="detail-value">{{ (uploadResult()!.confidence * 100).toFixed(1) }}%</span>
+        </div>
+        @if (uploadResult()!.metadata['word_count']) {
+          <div class="detail-item">
+            <span class="detail-label">Word Count:</span>
+            <span class="detail-value">{{ uploadResult()!.metadata['word_count'] }}</span>
+          </div>
+        }
+      </div>
+      
+      <div class="extracted-text">
+        <h3>Extracted Text</h3>
+        <div class="text-content">
+          {{ uploadResult()!.extracted_text }}
+        </div>
+      </div>
+      
+      <button (click)="clearSelection()" class="btn-primary">
+        Upload Another Photo
+      </button>
+    </div>
+  }
+</div>
